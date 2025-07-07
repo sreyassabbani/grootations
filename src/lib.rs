@@ -1,7 +1,13 @@
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 
+use std::ops;
+
 mod blades;
+mod multivector;
+
+pub use blades::*;
+pub use multivector::*;
 
 /// A single basis element with its coefficient
 ///
@@ -73,6 +79,100 @@ impl<T: Copy, const BASIS: usize> BasisBlade<T, BASIS> {
         (0..usize::BITS as usize) // assuming usize is at most 64 bits
             .filter(|&i| (BASIS & (1 << i)) != 0)
             .collect()
+    }
+}
+
+/// A stack-stored representation of an N-dimensional, G-grade simple vector (a blade)
+pub struct Blade<T: Copy, const G: usize, const N: usize>
+where
+    [(); binomial(N, G)]: Sized,
+{
+    coefficients: [T; binomial(N, G)],
+}
+
+impl<T: Copy + Default, const N: usize> Default for Vector<T, N>
+where
+    [(); binomial(N, 1)]: Sized,
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Calculate binomial coefficient C(n, k) at compile time
+pub const fn binomial(n: usize, k: usize) -> usize {
+    if k > n {
+        0
+    } else if k == 0 || k == n {
+        1
+    } else {
+        // Use the recursive formula: C(n,k) = C(n-1,k-1) + C(n-1,k)
+        // But we need to implement this iteratively for const fn
+        let mut result = 1;
+        let mut i = 1;
+        while i <= k {
+            result = result * (n - i + 1) / i;
+            i += 1;
+        }
+        result
+    }
+}
+
+pub type Vector<T, const N: usize> = Blade<T, 1, N>;
+pub type Bivector<T, const N: usize> = Blade<T, 2, N>;
+pub type Trivector<T, const N: usize> = Blade<T, 3, N>;
+
+impl<T: Copy + Default, const N: usize> Vector<T, N>
+where
+    [(); binomial(N, 1)]: Sized,
+{
+    pub fn new() -> Self {
+        Self {
+            coefficients: [T::default(); binomial(N, 1)],
+        }
+    }
+}
+
+impl<T: Copy, const N: usize> ops::Index<usize> for Vector<T, N>
+where
+    [(); binomial(N, 1)]: Sized,
+{
+    type Output = T;
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.coefficients[index]
+    }
+}
+
+impl<T: Copy, const N: usize> ops::IndexMut<usize> for Vector<T, N>
+where
+    [(); binomial(N, 1)]: Sized,
+{
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.coefficients[index]
+    }
+}
+
+impl<T: Copy> Vector<T, 3>
+where
+    [(); binomial(3, 1)]: Sized,
+{
+    pub fn x(&self) -> T {
+        self[0]
+    }
+    pub fn y(&self) -> T {
+        self[1]
+    }
+    pub fn z(&self) -> T {
+        self[2]
+    }
+    pub fn set_x(&mut self, x: T) {
+        self[0] = x;
+    }
+    pub fn set_y(&mut self, y: T) {
+        self[1] = y;
+    }
+    pub fn set_z(&mut self, z: T) {
+        self[2] = z;
     }
 }
 
